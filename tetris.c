@@ -38,19 +38,19 @@ typedef struct Group{
 void init();
 void draw();
 void generate();
-void moveDown(Group *g); // 向下移动
-void moveLR(Group *g,int n); //左右移动，p为移动步数，右为正
-bool isBottom(Group *g); //下侧是否有障碍
-bool isLSide(Group *g); //左侧是否有障碍
-bool isRSide(Group *g); //右侧是否有障碍
-bool hasBlock(Group *g,int i,int x,int y);
-bool isOnBottom(Group *g,int i);
-bool isOnLeft(Group *g,int i);
-bool isOnRight(Group *g,int i);
-void rotate(Group *p);
+void moveDown(); // 向下移动
+void moveLR(int n); //左右移动，p为移动步数，右为正
+bool isBottom(); //下侧是否有障碍
+bool isLSide(); //左侧是否有障碍
+bool isRSide(); //右侧是否有障碍
+bool hasBlock(int i,int x,int y);
+bool isOnBottom(int i);
+bool isOnLeft(int i);
+bool isOnRight(int i);
+void rotate();
 void listen();
 void getScore();
-
+bool isFinish();
 
 Group *g;
 bool stop;
@@ -62,7 +62,7 @@ int main(){
 	for(i = 0; i < 4; i++){
 		g->b[i] = malloc(sizeof(Block));
 	}
-	generate(g);
+	generate();
 	pthread_t id;
 	int ret=pthread_create(&id,NULL,(void*)listen,NULL); // 成功返回0，错误返回错误编号
 	if(ret!=0) {
@@ -71,14 +71,18 @@ int main(){
 	}
 	stop = false;
 	while(1){
-		generate(g);
-		while(!isBottom(g)){
+		generate();
+		while(!isBottom()){
 			if(!stop){
-				moveDown(g);
-				getScore();
+				moveDown();
 				draw();
 				usleep(200000);
 			}
+		}
+		getScore();
+		if(isFinish()){
+			printf("game over!\n");
+			exit(0);
 		}
 	}
 	pthread_join(id,NULL);
@@ -119,7 +123,7 @@ void draw(){
 	printf(NORMAL);
 }
 
-void generate(Group *g){
+void generate(){
 	int i,dir,which,x,y;
 	Block *p = g->b[0];
 	p->x = rand() % WIDTH_CONT + LEFT;
@@ -147,7 +151,7 @@ void generate(Group *g){
 					y = p->y + 1;
 					break;
 			}
-			if(y < 4 && !hasBlock(g,i,x,y)){
+			if(y < 4 && !hasBlock(i,x,y)){
 				Block *p = g->b[i];
 				p->x = x;
 				p->y = y;
@@ -157,7 +161,7 @@ void generate(Group *g){
 	}
 }
 
-void moveDown(Group *g){
+void moveDown(){
 	int i;
 	for(i = 0; i < 4; i++){
 		int x = g->b[i]->x;
@@ -172,8 +176,8 @@ void moveDown(Group *g){
 	}
 }
 
-void moveLR(Group *g,int n){
-	if((n > 0 && isRSide(g)) || ((n < 0 && isLSide(g)))){
+void moveLR(int n){
+	if((n > 0 && isRSide()) || ((n < 0 && isLSide()))){
 		return;
 	}
 	int i;
@@ -190,11 +194,11 @@ void moveLR(Group *g,int n){
 	}
 }
 
-bool isBottom(Group *g){
+bool isBottom(){
 	int i;
 	for(i = 0; i < 4; i++){
 		Block *b = g->b[i];
-		if(!isOnBottom(g,i)){
+		if(!isOnBottom(i)){
 			continue;
 		}
 		if(a[b->y+1][b->x]){
@@ -204,11 +208,11 @@ bool isBottom(Group *g){
 	return false;
 }
 
-bool isLSide(Group *g){
+bool isLSide(){
 	int i;
 	for(i = 0; i < 4; i++){
 		Block *b = g->b[i];
-		if(!isOnLeft(g,i)){
+		if(!isOnLeft(i)){
 			continue;
 		}
 		if(a[b->y][b->x-1]){
@@ -218,11 +222,11 @@ bool isLSide(Group *g){
 	return false;
 }
 
-bool isRSide(Group *g){
+bool isRSide(){
 	int i;
 	for(i = 0; i < 4; i++){
 		Block *b = g->b[i];
-		if(!isOnRight(g,i)){
+		if(!isOnRight(i)){
 			continue;
 		}
 		if(a[b->y][b->x+1]){
@@ -232,7 +236,7 @@ bool isRSide(Group *g){
 	return false;
 }
 
-bool hasBlock(Group *g,int i,int x,int y){
+bool hasBlock(int i,int x,int y){
 	for(i--;i >= 0; i--){
 		if((g->b[i]->x == x && g->b[i]->y == y)){
 			return true;
@@ -241,7 +245,7 @@ bool hasBlock(Group *g,int i,int x,int y){
 	return false;
 }
 
-bool isOnBottom(Group *g,int i){
+bool isOnBottom(int i){
 	int j;
 	Block *bi,*b;
 	bi = g->b[i];
@@ -258,7 +262,7 @@ bool isOnBottom(Group *g,int i){
 	return true;
 }
 
-bool isOnLeft(Group *g,int i){
+bool isOnLeft(int i){
 	int j;
 	Block *bi,*b;
 	bi = g->b[i];
@@ -275,7 +279,7 @@ bool isOnLeft(Group *g,int i){
 	return true;
 }
 
-bool isOnRight(Group *g,int i){
+bool isOnRight(int i){
 	int j;
 	Block *bi,*b;
 	bi = g->b[i];
@@ -292,20 +296,23 @@ bool isOnRight(Group *g,int i){
 	return true;
 }
 
-void rotate(Group *g){
+void rotate(){
 	int b[3][2];
 	int cx = g->b[0]->x;
 	int cy = g->b[0]->y;
 	int i,x,y,nx,ny;
-	stop = true;
+	for(i = 0; i < 3; i++){
+		a[g->b[i+1]->y][g->b[i+1]->x] = 0;
+	}
 	for(i = 1; i < 4; i++){
 		x = g->b[i]->x;
 		y = g->b[i]->y;
 		nx = cx + cy - y;
 		ny = cy - cx + x;
 		if(nx < 1 || nx >= RIGHT-1 || a[ny][nx]){
-			printf("can't rotate....cx:%d,cy:%d,",cx,cy);
-			printf("nx:%d,ny:%d,x:%d,y:%d,a:%d",nx,ny,x,y,a[ny][nx]);
+			for(i = 0; i < 3; i++){
+				a[g->b[i+1]->y][g->b[i+1]->x] = 1;
+			}
 			return;
 		}
 		b[i-1][0] = nx;
@@ -319,7 +326,6 @@ void rotate(Group *g){
 		g->b[i+1]->x = x;
 		g->b[i+1]->y = y;
 	}
-	stop = false;
 }
 
 void listen(){
@@ -332,36 +338,41 @@ void listen(){
 		exit(0);
 	}
 	while(1){
-		// usleep(50000);
 		if(read(keys_fd, &t, sizeof(t)) == sizeof(t)){
 			if(t.type==EV_KEY && t.value == 0){
-				switch(t.code){
-				case KEY_ESC:
-					// system(STTY_DEF TTY_PATH);
-					exit(0);
-				case KEY_UP:
-					rotate(g);
-					draw();
-					break;
-				case KEY_LEFT:
-					// LEFT = t.value;
-					moveLR(g,-1);
-					draw();
-					break;
-				case KEY_RIGHT:
-					// RIGHT = t.value;
-					moveLR(g,1);
-					draw();
-					break;
-				case KEY_DOWN:
-					if(!isBottom(g)){
-						moveDown(g);
+				if(t.code == KEY_SPACE){
+					stop = !stop;
+				}else if(!stop){
+					switch(t.code){
+					case KEY_ESC:
+						// system(STTY_DEF TTY_PATH);
+						exit(0);
+					case KEY_UP:
+						rotate();
 						draw();
-						getScore();
+						break;
+					case KEY_LEFT:
+						// LEFT = t.value;
+						moveLR(-1);
+						draw();
+						break;
+					case KEY_RIGHT:
+						// RIGHT = t.value;
+						moveLR(1);
+						draw();
+						break;
+					case KEY_DOWN:
+						if(!isBottom()){
+							moveDown();
+							draw();
+						}else{
+							getScore();
+							if(isFinish()){
+								printf("game over!\n");
+								exit(0);
+							}
+						}
 					}
-					break;
-				case KEY_SPACE:
-					stop = false;
 				}
             }
 		}
@@ -388,4 +399,14 @@ void getScore(){
 			draw();
 		}
 	}
+}
+
+bool isFinish(){
+	int i;
+	for(i = LEFT; i < RIGHT - 1; i++){
+		if(a[3][i] == 1){
+			return true;
+		}
+	}
+	return false;
 }
